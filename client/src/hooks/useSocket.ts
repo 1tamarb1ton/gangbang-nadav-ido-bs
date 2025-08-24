@@ -14,8 +14,10 @@ export interface GameState {
   questionIndex: number;
   totalQuestions: number;
   players: string[];
-  answers: Array<{ name: string; answer: string }>;
-  gamePhase: 'waiting' | 'question' | 'revealing' | 'complete';
+  votingOptions: Array<{ answer: string; isCorrect?: boolean }>;
+  leaderboard: Array<{ name: string; score: number }>;
+  correctAnswer: string | null;
+  gamePhase: 'waiting' | 'question' | 'voting' | 'revealing' | 'complete';
   connected: boolean;
 }
 
@@ -32,7 +34,9 @@ export function useSocket() {
     questionIndex: 0,
     totalQuestions: 0,
     players: [],
-    answers: [],
+    votingOptions: [],
+    leaderboard: [],
+    correctAnswer: null,
     gamePhase: 'waiting',
     connected: false
   });
@@ -97,14 +101,28 @@ export function useSocket() {
         questionIndex: data.questionIndex,
         totalQuestions: data.totalQuestions,
         gamePhase: 'question',
-        answers: []
+        votingOptions: [],
+        correctAnswer: null
       }));
     });
 
-    socket.on("game:answers", (answers: Array<{ name: string; answer: string }>) => {
+    socket.on("game:voting", (data: { answers: Array<{ answer: string; isCorrect?: boolean }> }) => {
       setGameState(prev => ({
         ...prev,
-        answers,
+        votingOptions: data.answers,
+        gamePhase: 'voting'
+      }));
+    });
+
+    socket.on("game:results", (data: { 
+      correctAnswer: string; 
+      scores: Array<{ name: string; score: number; gained: number }>; 
+      leaderboard: Array<{ name: string; score: number }>;
+    }) => {
+      setGameState(prev => ({
+        ...prev,
+        correctAnswer: data.correctAnswer,
+        leaderboard: data.leaderboard,
         gamePhase: 'revealing'
       }));
     });
@@ -124,7 +142,9 @@ export function useSocket() {
         roomCode: null,
         gamePhase: 'waiting',
         currentQuestion: null,
-        answers: [],
+        votingOptions: [],
+        leaderboard: [],
+        correctAnswer: null,
         players: []
       }));
       toast({
@@ -148,7 +168,7 @@ export function useSocket() {
   }, [toast]);
 
   const actions = {
-    createRoom: (questions: string[]) => {
+    createRoom: (questions: Array<{question: string, correctAnswer: string}>) => {
       socketRef.current?.emit("room:create", { questions });
     },
 
@@ -166,11 +186,20 @@ export function useSocket() {
       }
     },
 
-    hostAction: (action: 'start' | 'reveal' | 'next') => {
+    hostAction: (action: 'start' | 'show_voting' | 'reveal' | 'next') => {
       if (gameState.roomCode && gameState.isHost) {
         socketRef.current?.emit("host:action", { 
           code: gameState.roomCode, 
           action 
+        });
+      }
+    },
+
+    voteAnswer: (selectedAnswer: string) => {
+      if (gameState.roomCode) {
+        socketRef.current?.emit("answer:vote", { 
+          code: gameState.roomCode, 
+          selectedAnswer 
         });
       }
     },
@@ -185,7 +214,9 @@ export function useSocket() {
         questionIndex: 0,
         totalQuestions: 0,
         players: [],
-        answers: [],
+        votingOptions: [],
+        leaderboard: [],
+        correctAnswer: null,
         gamePhase: 'waiting',
         connected: socketRef.current?.connected || false
       });

@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { 
   createRoomSchema, 
   joinRoomSchema, 
-  submitAnswerSchema, 
+  submitAnswerSchema,
+  voteAnswerSchema, 
   hostActionSchema,
   type ServerToClientEvents,
   type ClientToServerEvents 
@@ -28,10 +29,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     socket.on("room:create", async (data) => {
       try {
         const { questions } = createRoomSchema.parse(data);
-        const filteredQuestions = questions.filter(q => q.trim().length > 0);
+        const filteredQuestions = questions.filter(q => q.question.trim().length > 0 && q.correctAnswer.trim().length > 0);
         
         if (filteredQuestions.length === 0) {
-          socket.emit("error", "Please provide at least one question");
+          socket.emit("error", "Please provide at least one question with answer");
           return;
         }
 
@@ -70,11 +71,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const currentQuestion = room.questions[room.currentQuestionIndex];
           if (currentQuestion) {
             socket.emit("game:question", {
-              question: currentQuestion,
+              question: currentQuestion.question,
               questionIndex: room.currentQuestionIndex + 1,
               totalQuestions: room.questions.length
             });
           }
+        } else if (room.state === 'voting') {
+          // Send voting options if in voting phase
+          const answers = await storage.getAllAnswers(code);
+          const currentQuestion = room.questions[room.currentQuestionIndex];
+          const votingOptions = [
+            ...answers.map(a => ({ answer: a.answer, isCorrect: false })),
+            { answer: currentQuestion.correctAnswer, isCorrect: true }
+          ];
+          // Shuffle the options
+          for (let i = votingOptions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [votingOptions[i], votingOptions[j]] = [votingOptions[j], votingOptions[i]];
+          }
+          socket.emit("game:voting", { answers: votingOptions });
         }
         
         console.log(`Player ${name} joined room ${code}`);
@@ -103,17 +118,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const playerNames = Object.values(room.players);
         io.to(code).emit("room:players", playerNames);
         
-        // Auto-reveal if all players have answered
+        // Auto-proceed to voting if all players have answered
         if (answerCount === playerCount && playerCount > 0) {
           const answers = await storage.getAllAnswers(code);
-          await storage.updateRoom(code, { state: 'revealing' });
-          io.to(code).emit("game:answers", answers);
+          const currentQuestion = room.questions[room.currentQuestionIndex];
+          const votingOptions = [
+            ...answers.map(a => ({ answer: a.answer, isCorrect: false })),
+            { answer: currentQuestion.correctAnswer, isCorrect: true }
+          ];
+          // Shuffle the options
+          for (let i = votingOptions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [votingOptions[i], votingOptions[j]] = [votingOptions[j], votingOptions[i]];
+          }
+          await storage.updateRoom(code, { state: 'voting' });
+          await storage.clearAnswers(code); // Clear for voting phase
+          io.to(code).emit("game:voting", { answers: votingOptions });
         }
         
         console.log(`Answer submitted in room ${code}: ${answerCount}/${playerCount}`);
       } catch (error) {
         socket.emit("error", "Failed to submit answer");
         console.error("Answer submission error:", error);
+      }
+    });
+
+    socket.on("answer:vote", async (data) => {
+      try {
+        const { code, selectedAnswer } = voteAnswerSchema.parse(data);
+        const room = await storage.getRoom(code);
+        
+        if (!room || room.state !== 'voting') {
+          socket.emit("error", "Cannot vote right now");
+          return;
+        }
+
+        const currentQuestion = room.questions[room.currentQuestionIndex];
+        const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+        
+        if (isCorrect) {
+          await storage.updatePlayerScore(code, socket.id, 10);
+        }
+        
+        console.log(`Vote submitted in room ${code}: ${selectedAnswer} - ${isCorrect ? 'Correct' : 'Wrong'}`);
+      } catch (error) {
+        socket.emit("error", "Failed to submit vote");
+        console.error("Vote submission error:", error);
       }
     });
 
@@ -138,15 +188,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const currentQuestion = room.questions[room.currentQuestionIndex];
           io.to(code).emit("game:question", {
-            question: currentQuestion,
+            question: currentQuestion.question,
             questionIndex: room.currentQuestionIndex + 1,
             totalQuestions: room.questions.length
           });
           
-        } else if (action === 'reveal') {
+        } else if (action === 'show_voting') {
           const answers = await storage.getAllAnswers(code);
+          const currentQuestion = room.questions[room.currentQuestionIndex];
+          const votingOptions = [
+            ...answers.map(a => ({ answer: a.answer, isCorrect: false })),
+            { answer: currentQuestion.correctAnswer, isCorrect: true }
+          ];
+          // Shuffle the options
+          for (let i = votingOptions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [votingOptions[i], votingOptions[j]] = [votingOptions[j], votingOptions[i]];
+          }
+          await storage.updateRoom(code, { state: 'voting' });
+          await storage.clearAnswers(code);
+          io.to(code).emit("game:voting", { answers: votingOptions });
+          
+        } else if (action === 'reveal') {
+          const currentQuestion = room.questions[room.currentQuestionIndex];
+          const leaderboard = await storage.getLeaderboard(code);
           await storage.updateRoom(code, { state: 'revealing' });
-          io.to(code).emit("game:answers", answers);
+          
+          io.to(code).emit("game:results", {
+            correctAnswer: currentQuestion.correctAnswer,
+            scores: [],
+            leaderboard: leaderboard
+          });
           
         } else if (action === 'next') {
           const newIndex = room.currentQuestionIndex + 1;
@@ -163,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             const nextQuestion = room.questions[newIndex];
             io.to(code).emit("game:question", {
-              question: nextQuestion,
+              question: nextQuestion.question,
               questionIndex: newIndex + 1,
               totalQuestions: room.questions.length
             });

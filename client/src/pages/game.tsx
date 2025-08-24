@@ -43,6 +43,7 @@ export default function Game() {
             gameState={gameState}
             onJoinRoom={actions.joinRoom}
             onSubmitAnswer={actions.submitAnswer}
+            onVoteAnswer={actions.voteAnswer}
             onNewGame={actions.resetGame}
           />
         )}

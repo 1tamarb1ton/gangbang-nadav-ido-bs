@@ -7,8 +7,8 @@ import type { GameState } from "@/hooks/useSocket";
 
 interface HostInterfaceProps {
   gameState: GameState;
-  onCreateRoom: (questions: string[]) => void;
-  onHostAction: (action: 'start' | 'reveal' | 'next') => void;
+  onCreateRoom: (questions: Array<{question: string, correctAnswer: string}>) => void;
+  onHostAction: (action: 'start' | 'show_voting' | 'reveal' | 'next') => void;
   onNewGame: () => void;
 }
 
@@ -17,15 +17,22 @@ export function HostInterface({ gameState, onCreateRoom, onHostAction, onNewGame
   const { toast } = useToast();
 
   const handleCreateRoom = () => {
-    const questions = questionsText
-      .split('\n')
-      .map(q => q.trim())
-      .filter(q => q.length > 0);
+    const lines = questionsText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const questions: Array<{question: string, correctAnswer: string}> = [];
+    
+    for (let i = 0; i < lines.length; i += 2) {
+      const question = lines[i];
+      const answer = lines[i + 1];
+      
+      if (question && answer) {
+        questions.push({ question, correctAnswer: answer });
+      }
+    }
 
     if (questions.length === 0) {
       toast({
         title: "Error",
-        description: "Please enter at least one question",
+        description: "Please enter at least one question-answer pair",
         variant: "destructive"
       });
       return;
@@ -65,17 +72,17 @@ export function HostInterface({ gameState, onCreateRoom, onHostAction, onNewGame
           
           <div className="mb-6">
             <label htmlFor="questions" className="block text-sm font-medium text-gray-700 mb-2">
-              Enter your questions (one per line)
+              Enter questions and answers (question on one line, correct answer on the next)
             </label>
             <Textarea
               id="questions"
               data-testid="textarea-questions"
-              placeholder="What's your favorite pizza topping?&#10;If you could have dinner with anyone, who would it be?&#10;What's the weirdest thing you believed as a child?"
+              placeholder="What's the capital of France?&#10;Paris&#10;What color do you get when mixing red and blue?&#10;Purple&#10;What's 2+2?&#10;4"
               value={questionsText}
               onChange={(e) => setQuestionsText(e.target.value)}
-              className="h-32 resize-none"
+              className="h-40 resize-none font-mono text-sm"
             />
-            <p className="text-sm text-gray-500 mt-2">Add 3-10 questions for the best experience</p>
+            <p className="text-sm text-gray-500 mt-2">Format: Question, then correct answer on next line. Add 3-10 question pairs.</p>
           </div>
 
           <Button 
@@ -147,11 +154,21 @@ export function HostInterface({ gameState, onCreateRoom, onHostAction, onNewGame
             
             {gameState.gamePhase === 'question' && (
               <Button 
-                data-testid="button-reveal-answers"
-                onClick={() => onHostAction('reveal')}
+                data-testid="button-show-voting"
+                onClick={() => onHostAction('show_voting')}
                 className="flex-1 bg-party-accent hover:bg-amber-500"
               >
-                Reveal Answers
+                Start Voting
+              </Button>
+            )}
+            
+            {gameState.gamePhase === 'voting' && (
+              <Button 
+                data-testid="button-reveal-results"
+                onClick={() => onHostAction('reveal')}
+                className="flex-1 bg-orange-500 hover:bg-orange-600"
+              >
+                Show Results
               </Button>
             )}
             
@@ -214,27 +231,43 @@ export function HostInterface({ gameState, onCreateRoom, onHostAction, onNewGame
         </Card>
       )}
 
-      {/* Answers Display */}
-      {gameState.gamePhase === 'revealing' && gameState.answers.length > 0 && (
+      {/* Results Display */}
+      {gameState.gamePhase === 'revealing' && (gameState.correctAnswer || gameState.leaderboard.length > 0) && (
         <Card className="shadow-sm border border-gray-200">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Player Answers</h3>
-            <div className="space-y-3">
-              {gameState.answers.map((answer, index) => (
-                <Card key={index} className="bg-gray-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <span data-testid={`text-answer-player-${index}`} className="font-medium text-gray-900">
-                        {answer.name}
+            <h3 className="font-semibold text-gray-900 mb-4">Round Results</h3>
+            
+            {gameState.correctAnswer && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-medium text-green-800 mb-2">Correct Answer:</h4>
+                <p data-testid="text-correct-answer" className="text-green-700 text-lg">
+                  {gameState.correctAnswer}
+                </p>
+              </div>
+            )}
+
+            {gameState.leaderboard.length > 0 && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">🏆 Top Players</h4>
+                <div className="space-y-2">
+                  {gameState.leaderboard.map((player, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg px-4 py-3 border border-yellow-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">
+                          {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                        </div>
+                        <span data-testid={`text-leaderboard-name-${index}`} className="font-medium text-gray-900">
+                          {player.name}
+                        </span>
+                      </div>
+                      <span data-testid={`text-leaderboard-score-${index}`} className="text-lg font-bold text-orange-600">
+                        {player.score} pts
                       </span>
                     </div>
-                    <p data-testid={`text-answer-text-${index}`} className="text-gray-700">
-                      {answer.answer}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
