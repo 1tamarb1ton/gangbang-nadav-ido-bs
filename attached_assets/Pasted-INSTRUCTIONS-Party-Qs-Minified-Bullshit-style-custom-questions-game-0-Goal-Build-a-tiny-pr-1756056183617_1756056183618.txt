@@ -1,0 +1,212 @@
+INSTRUCTIONS — “Party Qs” (Minified Bullshit-style custom-questions game)
+
+0) Goal
+
+Build a tiny, production-usable web app that lets a Host paste custom questions and run rounds where Players (on their phones) submit answers. The Host reveals all answers per round, then advances to the next question. MVP is 1 repl, no DB, in-memory state.
+
+⸻
+
+1) Tech & Hosting
+	•	Runtime: Node.js 18+ on Replit (single repl).
+	•	Server: Express + Socket.IO (WS).
+	•	Static client: Vanilla HTML/CSS/JS (no build step).
+	•	State: In-memory rooms object; no persistence.
+	•	Ports: HTTP listens on process.env.PORT || 3000.
+	•	CORS: Allow * (Replit preview + mobile).
+
+⸻
+
+2) Deliverables / File tree
+
+/ (repo root)
+├─ package.json
+├─ server.js                 # Express + Socket.IO + in-memory room logic
+└─ public/
+   ├─ index.html             # Host + Player combined UI (simple)
+   └─ client.js              # Socket.IO client, host/player flows
+
+Optional (nice-to-have)
+/public/qrcode.js (if you add QR), /public/styles.css.
+
+⸻
+
+3) Features (MVP)
+	1.	Create Room (Host):
+	•	Paste newline-separated questions.
+	•	Click “Create Room” → server generates 4-digit room code, stores questions, sets idx = 0, empty players/answers, joins host to room.
+	•	Show “Room code: ####” and Start/Next button.
+	2.	Join Room (Player):
+	•	Enter Room code + Name.
+	•	On success, player joins WS room and sees current question if round is active.
+	3.	Round Flow:
+	•	Host clicks Start / Next → broadcast round:question for questions[idx].
+	•	Players type answer → Send.
+	•	When all joined players have answered (or host clicks reveal after a timeout—phase 2), server emits round:reveal with { name, answer }[].
+	4.	Advance:
+	•	Host clicks Reveal → Next Q → idx++ and either sends next question or emits game:over if finished.
+	5.	Roster:
+	•	Show players list on host screen (updates on join/leave).
+	6.	Cleanup:
+	•	If host disconnects, emit game:ended to all and delete room.
+
+⸻
+
+4) Data model (in-memory)
+
+/** rooms shape */
+{
+  [code]: {
+    hostId: string,
+    questions: string[],
+    idx: number,             // current question index
+    players: { [socketId]: string /* name */ },
+    answers:  { [socketId]: string /* answer */ },
+  }
+}
+
+	•	Room code: 4-digit numeric string (collision unlikely for few rooms; if duplicate, regenerate).
+
+⸻
+
+5) Realtime protocol (Socket.IO events)
+
+From Client → Server
+	•	host:create { questions: string[] }
+	•	host:next { code: string } (start or repeat current question)
+	•	host:advance { code: string } (move to next question post-reveal)
+	•	player:join { code: string, name: string }
+	•	player:answer { code: string, answer: string }
+
+From Server → Client
+	•	host:created { code: string } (private to host)
+	•	room:players string[] (names list; broadcast to room)
+	•	round:question string (current question text; broadcast)
+	•	round:reveal { name: string, answer: string }[] (broadcast)
+	•	game:over (broadcast)
+	•	game:ended (host left; broadcast)
+	•	error string (sent to the requester only)
+
+Rules:
+	•	Only the host (by socket.id === hostId) may emit host:next / host:advance.
+	•	On player:join, if a round is in progress, send that player the current question immediately.
+
+⸻
+
+6) UI spec (simple)
+
+public/index.html
+	•	Host section
+	•	<textarea id="q"> for newline-separated questions.
+	•	Buttons: #create, #start (Start/Next), #advance (Reveal → Next Q).
+	•	Text nodes: #hostInfo (code), #players (names), #question (current), #reveal (answers list).
+	•	Player section
+	•	Inputs: #code, #name, #answer.
+	•	Buttons: #join, #send (disabled until a question arrives).
+	•	Text node: #p_question.
+
+public/client.js
+	•	Connect once: const socket = io();
+	•	Implement handlers for all server events above.
+	•	Player: on receiving round:question, enable #send and clear #answer.
+
+Style: minimal inline CSS (system font, max-width container). No frameworks.
+
+⸻
+
+7) Edge cases & constraints
+	•	Room not found: player:join responds with error event.
+	•	Joining mid-round: Player immediately receives round:question.
+	•	Player disconnect: Remove from players; emit updated room:players.
+	•	Host disconnect: Emit game:ended, delete room state.
+	•	Double answer: Latest player:answer overwrites previous for that player (simple UX); OR ignore duplicates (choose one, document it).
+	•	All answered check: Compare Object.keys(answers).length to Object.keys(players).length.
+	•	Empty questions: Prevent room creation if none provided.
+	•	Trimming: Strip whitespace; ignore blank question lines.
+
+⸻
+
+8) Security & Privacy (for MVP)
+	•	No PII beyond display names; all ephemeral.
+	•	Don’t expose full rooms object to clients.
+	•	Trust boundary: host-only controls enforced server-side.
+	•	Basic input sanitization: trim strings; limit max lengths (e.g., name 30 chars, answer 500 chars, questions 100 entries).
+
+⸻
+
+9) Performance & reliability
+	•	In-memory; limited by repl container memory.
+	•	Keep payloads tiny; answers list is per-round only.
+	•	No persistence; reload wipes rooms (acceptable for party use).
+
+⸻
+
+10) Local/testing steps
+	1.	Install
+
+npm init -y
+npm i express socket.io
+
+
+	2.	Run
+
+node server.js
+
+
+	3.	Manual test (two tabs / phone + laptop)
+	•	Tab A (Host): paste 3–5 questions → Create Room → note code.
+	•	Tab B (Player): join with code/name.
+	•	Add a 2nd/3rd player.
+	•	Start round, submit answers, verify auto-reveal on last answer.
+	•	Advance until Game Over.
+	•	Kill host tab; verify players get “Host left. Game ended.”
+
+⸻
+
+11) Acceptance criteria (MVP)
+	•	Create room generates code and stores questions; Host sees code & Start button.
+	•	Players can join with code + name; host sees roster update in <1s.
+	•	On Start, current question appears for all joined players and host.
+	•	When every joined player submits, host + players see reveal list with names & answers.
+	•	Host can advance to next question; flow repeats until Game Over.
+	•	If host disconnects, all players receive “game ended” and room is cleaned up.
+	•	Late joiners during a round see the current question immediately.
+	•	No server crashes on malformed payloads (empty name/answer/code → guarded).
+
+⸻
+
+12) Stretch (small, timeboxed)
+	•	Reveal timer: Host sets N seconds; if not all answered, reveal anyway.
+	•	Anonymous mode: Hide names on submit; show only on reveal.
+	•	QR join: Show QR of https://<repl-url>/?code=####.
+	•	Copy-to-clipboard: One click to copy code.
+	•	Shuffle reveal: Randomize answers order before emitting.
+
+⸻
+
+13) Handover notes
+	•	Code should be commented where logic branches (host vs player permissions, all-answered gate).
+	•	Keep server logic in one file for now; if growing, split rooms.js for state helpers.
+	•	No secrets required; Ship as public repl. Document that refresh clears rooms.
+
+⸻
+
+14) Packages
+
+{
+  "name": "party-qs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
+
+
+⸻
+
+15) Definition of Done
+
+The app runs on a public Replit URL, supports at least 1 host + 5 players on mobile browsers over Wi-Fi, completes a 10-question session without errors, and meets all Acceptance Criteria above.
