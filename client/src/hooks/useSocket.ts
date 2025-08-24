@@ -189,6 +189,10 @@ export function useSocket() {
         gamePhase: 'waiting',
         connected: socketRef.current?.connected || false
       });
+    },
+
+    setMode: (mode: 'select' | 'host' | 'player') => {
+      setGameState(prev => ({ ...prev, mode }));
     }
   };
 

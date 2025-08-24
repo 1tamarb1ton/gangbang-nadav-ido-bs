@@ -7,8 +7,8 @@ export default function Game() {
   const { gameState, actions } = useSocket();
 
   const handleModeSelect = (mode: 'host' | 'player') => {
-    // Mode selection is handled by the socket state
-    // The actual mode change happens after successful room creation/join
+    // Switch to the selected mode to show the appropriate interface
+    actions.setMode(mode);
   };
 
   return (
