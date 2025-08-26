@@ -1,32 +1,33 @@
 import { Card, CardContent } from "@/components/ui/card";
 
 interface ModeSelectorProps {
-  onSelectMode: (mode: 'host' | 'player') => void;
+  onSelectMode: (mode: "host" | "player") => void;
 }
 
 export function ModeSelector({ onSelectMode }: ModeSelectorProps) {
   return (
-    <Card className="shadow-sm border border-gray-200">
+    <Card className="shadow-sm border">
       <CardContent className="p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">
-          Choose Your Role
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button 
+        <div className="flex flex-col items-center justify-center gap-4 w-full">
+          <button
             data-testid="button-host-mode"
-            onClick={() => onSelectMode('host')}
-            className="bg-party-primary hover:bg-indigo-600 text-white font-semibold py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+            onClick={() => onSelectMode("host")}
+            className="w-full bg-party-primary hover:bg-indigo-600 text-white font-bold py-8 px-8 rounded-2xl transition-colors duration-200 flex flex-col items-center justify-center gap-3 text-xl"
           >
-            <span className="text-2xl">🎮</span>
-            <span>I'm the Host</span>
+            <span className="text-5xl flex items-center justify-center">
+              🎮
+            </span>
+            <span className="flex items-center justify-center">מארח</span>
           </button>
-          <button 
+          <button
             data-testid="button-player-mode"
-            onClick={() => onSelectMode('player')}
-            className="bg-party-secondary hover:bg-emerald-600 text-white font-semibold py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+            onClick={() => onSelectMode("player")}
+            className="w-full bg-party-secondary hover:bg-emerald-600 text-white font-bold py-8 px-8 rounded-2xl transition-colors duration-200 flex flex-col items-center justify-center gap-3 text-xl"
           >
-            <span className="text-2xl">📱</span>
-            <span>I'm a Player</span>
+            <span className="text-5xl flex items-center justify-center">
+              📱
+            </span>
+            <span className="flex items-center justify-center">שחקן</span>
           </button>
         </div>
       </CardContent>

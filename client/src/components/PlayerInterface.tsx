@@ -14,7 +14,13 @@ interface PlayerInterfaceProps {
   onNewGame: () => void;
 }
 
-export function PlayerInterface({ gameState, onJoinRoom, onSubmitAnswer, onVoteAnswer, onNewGame }: PlayerInterfaceProps) {
+export function PlayerInterface({
+  gameState,
+  onJoinRoom,
+  onSubmitAnswer,
+  onVoteAnswer,
+  onNewGame,
+}: PlayerInterfaceProps) {
   const [roomCode, setRoomCode] = useState("");
   const [playerName, setPlayerName] = useState("");
   const [answer, setAnswer] = useState("");
@@ -26,18 +32,18 @@ export function PlayerInterface({ gameState, onJoinRoom, onSubmitAnswer, onVoteA
   const handleJoinRoom = () => {
     if (!roomCode.trim() || !playerName.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter both room code and your name",
-        variant: "destructive"
+        title: "שגיאה",
+        description: "אנא הכנס קוד חדר ושם",
+        variant: "destructive",
       });
       return;
     }
 
     if (roomCode.length !== 4) {
       toast({
-        title: "Error",
-        description: "Room code must be 4 digits",
-        variant: "destructive"
+        title: "שגיאה",
+        description: "קוד חדר חייב להיות 4 ספרות",
+        variant: "destructive",
       });
       return;
     }
@@ -46,38 +52,72 @@ export function PlayerInterface({ gameState, onJoinRoom, onSubmitAnswer, onVoteA
   };
 
   const handleSubmitAnswer = () => {
-    if (!answer.trim()) {
+    const trimmedAnswer = answer.trim();
+
+    if (!trimmedAnswer) {
       toast({
-        title: "Error",
-        description: "Please enter an answer",
-        variant: "destructive"
+        title: "שגיאה",
+        description: "אנא הכנס תשובה",
+        variant: "destructive",
       });
       return;
     }
 
-    onSubmitAnswer(answer.trim());
+    // Prevent extremely short answers that could be guesses
+    if (trimmedAnswer.length < 2) {
+      toast({
+        title: "שגיאה",
+        description: "התשובה קצרה מדי",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent answers that are just numbers (to avoid random guessing)
+    if (/^\d+$/.test(trimmedAnswer)) {
+      toast({
+        title: "שגיאה",
+        description: "התשובה לא יכולה להיות מספר בלבד",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent answers that are just repeated characters
+    if (/^(.)\1+$/.test(trimmedAnswer)) {
+      toast({
+        title: "שגיאה",
+        description: "התשובה לא יכולה להיות תו חוזר",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    onSubmitAnswer(trimmedAnswer);
     setHasSubmitted(true);
   };
 
   const handleRoomCodeChange = (value: string) => {
-    const formatted = value.replace(/\D/g, '').substring(0, 4);
+    const formatted = value.replace(/\D/g, "").substring(0, 4);
     setRoomCode(formatted);
   };
 
   // Game over state
-  if (gameState.gamePhase === 'complete') {
+  if (gameState.gamePhase === "complete") {
     return (
-      <Card className="shadow-sm border border-gray-200">
-        <CardContent className="p-8 text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Game Complete!</h2>
-          <p className="text-gray-600 mb-6">Thanks for playing Party Qs together!</p>
-          <Button 
+      <Card className="shadow-sm border">
+        <CardContent className="p-6 text-center">
+          <div className="text-5xl mb-4">🎉</div>
+          <h2 className="text-2xl font-bold mb-3">המשחק הסתיים!</h2>
+          <p className="text-muted-foreground mb-6 text-base">
+            תודה ששיחקתם יחד!
+          </p>
+          <Button
             data-testid="button-new-game"
             onClick={onNewGame}
-            className="bg-party-primary hover:bg-indigo-600"
+            className="bg-party-primary hover:bg-indigo-600 text-base px-8 py-4 h-auto"
           >
-            Start New Game
+            משחק חדש
           </Button>
         </CardContent>
       </Card>
@@ -87,51 +127,45 @@ export function PlayerInterface({ gameState, onJoinRoom, onSubmitAnswer, onVoteA
   // Show join form if not in a room
   if (!gameState.roomCode) {
     return (
-      <Card className="shadow-sm border border-gray-200">
+      <Card className="shadow-sm border">
         <CardContent className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <span className="text-2xl">📱</span>
-            <h2 className="text-xl font-semibold text-gray-900">Join Game</h2>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="roomCode" className="block text-sm font-medium text-gray-700 mb-2">
-                Room Code
-              </label>
+          <div className="flex flex-col items-center justify-center gap-6">
+            <div className="w-full">
               <Input
                 id="roomCode"
                 data-testid="input-room-code"
-                type="text"
-                placeholder="Enter 4-digit code"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="1234"
                 value={roomCode}
                 onChange={(e) => handleRoomCodeChange(e.target.value)}
-                className="text-center text-2xl font-mono tracking-wider"
+                className="text-center text-6xl font-mono tracking-widest h-28 flex items-center justify-center placeholder:text-gray-300 tracking-normal"
                 maxLength={4}
+                style={{ fontSize: "3rem" }}
               />
             </div>
-            
-            <div>
-              <label htmlFor="playerName" className="block text-sm font-medium text-gray-700 mb-2">
-                Your Name
-              </label>
+
+            <div className="w-full">
               <Input
                 id="playerName"
                 data-testid="input-player-name"
                 type="text"
-                placeholder="Enter your name"
+                placeholder="השם שלך"
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 maxLength={30}
+                className="h-20 text-6xl text-center flex items-center justify-center tracking-tight placeholder:text-gray-300"
+                style={{ fontSize: "3rem" }}
               />
             </div>
-            
-            <Button 
+
+            <Button
               data-testid="button-join-room"
               onClick={handleJoinRoom}
-              className="w-full bg-party-secondary hover:bg-emerald-600"
+              className="w-full bg-party-secondary hover:bg-emerald-600 text-xl px-12 py-6 h-auto font-bold"
             >
-              Join Room
+              הצטרף
             </Button>
           </div>
         </CardContent>
@@ -140,210 +174,293 @@ export function PlayerInterface({ gameState, onJoinRoom, onSubmitAnswer, onVoteA
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Player Status */}
-      <Card className="shadow-sm border border-gray-200">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl">🎯</span>
-              <div>
-                <h3 data-testid="text-player-name" className="font-semibold text-gray-900">
-                  {gameState.playerName}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Room: <span data-testid="text-room-code">{gameState.roomCode}</span>
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className={`w-3 h-3 rounded-full ${gameState.connected ? 'bg-party-secondary' : 'bg-red-500'}`}></div>
-              <p className="text-xs text-gray-500 mt-1">
-                {gameState.connected ? 'Connected' : 'Disconnected'}
-              </p>
+      <Card className="shadow-sm border">
+        <CardContent className="p-6 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-2 w-full">
+            <span className="text-3xl mb-2">🎯</span>
+            <h3
+              data-testid="text-player-name"
+              className="font-bold text-2xl text-center"
+            >
+              {gameState.playerName}
+            </h3>
+            <div className="flex items-center justify-center gap-3 mt-2">
+              <span
+                className="text-lg font-mono bg-muted rounded-lg px-4 py-2"
+                data-testid="text-room-code"
+              >
+                {gameState.roomCode}
+              </span>
+              <div
+                className={`w-4 h-4 rounded-full ${
+                  gameState.connected ? "bg-party-secondary" : "bg-destructive"
+                }`}
+                title={gameState.connected ? "מחובר" : "מנותק"}
+              ></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Current Question */}
-      {gameState.gamePhase === 'question' && gameState.currentQuestion && !hasSubmitted && (
-        <Card className="shadow-sm border border-gray-200">
-          <CardContent className="p-6">
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-1 text-sm text-gray-600">
-                <span>Question</span>
-                <span data-testid="text-question-index">{gameState.questionIndex}</span>
-                <span>of</span>
-                <span data-testid="text-total-questions">{gameState.totalQuestions}</span>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-r from-party-primary to-party-secondary rounded-lg p-6 mb-6">
-              <p data-testid="text-current-question" className="text-lg text-white text-center font-medium">
-                {gameState.currentQuestion}
-              </p>
-            </div>
-
-            {/* Answer Input */}
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Answer
-                </label>
-                <Textarea
-                  id="answer"
-                  data-testid="textarea-answer"
-                  placeholder="Type your answer here..."
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  className="h-24 resize-none"
-                  maxLength={500}
-                />
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs text-gray-500">Be creative! Others will see this.</span>
-                  <span data-testid="text-char-count" className="text-xs text-gray-400">
-                    {answer.length}/500
+      {gameState.gamePhase === "question" &&
+        gameState.currentQuestion &&
+        !hasSubmitted && (
+          <Card className="shadow-sm border">
+            <CardContent className="p-6">
+              <div className="flex justify-center mb-4">
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-6 py-3 text-2xl text-muted-foreground font-bold">
+                  <span data-testid="text-question-index">
+                    {gameState.questionIndex}
+                  </span>
+                  <span className="mx-1">/</span>
+                  <span data-testid="text-total-questions">
+                    {gameState.totalQuestions}
                   </span>
                 </div>
               </div>
-              
-              <Button 
-                data-testid="button-submit-answer"
-                onClick={handleSubmitAnswer}
-                className="w-full bg-party-secondary hover:bg-emerald-600"
-              >
-                Submit Answer
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+              <div className="bg-gradient-to-r from-party-primary to-party-secondary rounded-lg p-4 mb-4">
+                <p
+                  data-testid="text-current-question"
+                  className="text-3xl text-foreground text-center font-bold"
+                >
+                  {gameState.currentQuestion}
+                </p>
+              </div>
+
+              {/* Answer Input */}
+              <div className="flex flex-col items-center justify-center gap-6">
+                <div className="w-full">
+                  <div className="flex items-center justify-center h-40">
+                    <input
+                      type="text"
+                      id="answer"
+                      data-testid="textarea-answer"
+                      placeholder="התשובה שלך..."
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      className="h-24 w-full text-4xl text-center flex items-center justify-center placeholder:text-gray-300 rounded-lg border border-gray-300 font-bold"
+                      maxLength={500}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        textAlign: "center",
+                        height: "100%",
+                        fontSize: "2.5rem",
+                        lineHeight: "2.5rem",
+                      }}
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <span
+                      data-testid="text-char-count"
+                      className="text-base text-muted-foreground font-bold"
+                    >
+                      {answer.length}/500
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  data-testid="button-submit-answer"
+                  onClick={handleSubmitAnswer}
+                  className="w-full bg-party-secondary hover:bg-emerald-600 text-xl px-12 py-6 h-auto font-bold"
+                >
+                  שלח
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Voting Phase */}
-      {gameState.gamePhase === 'voting' && gameState.votingOptions.length > 0 && !hasVoted && (
-        <Card className="shadow-sm border border-gray-200">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-4 text-center">🗳️ Choose the Correct Answer</h3>
-            <p className="text-gray-600 text-center mb-6">Pick what you think is the right answer (10 points for correct choice)</p>
-            
-            <div className="space-y-3">
-              {gameState.votingOptions.map((option, index) => (
-                <button
-                  key={index}
-                  data-testid={`button-vote-option-${index}`}
-                  onClick={() => {
-                    onVoteAnswer(option.answer);
-                    setHasVoted(true);
-                    setSelectedVote(option.answer);
-                  }}
-                  className="w-full p-4 text-left bg-gray-50 hover:bg-party-secondary hover:text-white border border-gray-200 rounded-lg transition-colors duration-200"
-                >
-                  <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option.answer}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {gameState.gamePhase === "voting" &&
+        gameState.votingOptions.length > 0 &&
+        !hasVoted && (
+          <Card className="shadow-sm border">
+            <CardContent className="p-6">
+              <div className="mb-6">
+                <div className="flex justify-center mb-4">
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-6 py-3 text-2xl text-muted-foreground font-bold">
+                    <span>{gameState.questionIndex}</span>
+                    <span className="mx-1">/</span>
+                    <span>{gameState.totalQuestions}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-party-primary to-party-secondary rounded-lg p-4 mb-4">
+                  <p className="text-3xl text-foreground text-center font-bold">
+                    {gameState.currentQuestion}
+                  </p>
+                </div>
+
+                <h3 className="font-bold text-center text-xl">🗳️ בחר תשובה</h3>
+              </div>
+
+              <div className="flex flex-col items-center justify-center gap-3 w-full">
+                {gameState.votingOptions.map((option, index) => (
+                  <button
+                    key={index}
+                    data-testid={`button-vote-option-${index}`}
+                    onClick={() => {
+                      onVoteAnswer(option.answer);
+                      setHasVoted(true);
+                      setSelectedVote(option.answer);
+                    }}
+                    className="w-full p-6 text-center bg-muted hover:bg-party-secondary hover:text-primary-foreground border rounded-xl transition-colors duration-200 text-base font-medium flex items-center justify-center"
+                  >
+                    {option.answer}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Waiting State - After Answer Submission */}
-      {gameState.gamePhase === 'question' && hasSubmitted && (
-        <Card className="shadow-sm border border-gray-200">
+      {gameState.gamePhase === "question" && hasSubmitted && (
+        <Card className="shadow-sm border">
           <CardContent className="p-6 text-center">
             <div className="mb-4">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-gray-200 border-t-party-secondary rounded-full"></div>
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-muted border-t-party-secondary rounded-full"></div>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Answer Submitted!</h3>
-            <p className="text-gray-600">Waiting for other players to finish...</p>
+            <h3 className="font-bold mb-4 text-xl">✅ נשלח!</h3>
+            <p className="text-base text-muted-foreground">ממתין...</p>
           </CardContent>
         </Card>
       )}
 
       {/* Waiting State - After Vote */}
-      {gameState.gamePhase === 'voting' && hasVoted && (
-        <Card className="shadow-sm border border-gray-200">
+      {gameState.gamePhase === "voting" && hasVoted && (
+        <Card className="shadow-sm border">
           <CardContent className="p-6 text-center">
             <div className="mb-4">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-gray-200 border-t-party-secondary rounded-full"></div>
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-muted border-t-party-secondary rounded-full"></div>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Vote Cast!</h3>
-            <p className="text-gray-600 mb-2">You voted for: <strong>{selectedVote}</strong></p>
-            <p className="text-gray-500">Waiting for host to reveal results...</p>
+            <h3 className="font-bold mb-4 text-xl">🗳️ הצבעת!</h3>
+            <p className="text-base text-muted-foreground">ממתין...</p>
           </CardContent>
         </Card>
       )}
 
       {/* Results Display */}
-      {gameState.gamePhase === 'revealing' && (gameState.correctAnswer || gameState.leaderboard.length > 0) && (
-        <Card className="shadow-sm border border-gray-200">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-6 text-center">🎯 Round Results</h3>
-            
-            {gameState.correctAnswer && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-800 mb-2 text-center">✅ Correct Answer:</h4>
-                <p data-testid="text-correct-answer" className="text-green-700 text-lg text-center font-semibold">
-                  {gameState.correctAnswer}
-                </p>
-                {selectedVote === gameState.correctAnswer && (
-                  <p className="text-center text-green-600 font-medium mt-2">🎉 You got it right! +10 points</p>
-                )}
-                {selectedVote && selectedVote !== gameState.correctAnswer && (
-                  <p className="text-center text-red-600 mt-2">Your guess: {selectedVote}</p>
-                )}
-              </div>
-            )}
+      {gameState.gamePhase === "revealing" &&
+        (gameState.correctAnswer || gameState.leaderboard.length > 0) && (
+          <Card className="shadow-sm border">
+            <CardContent className="p-6">
+              <h3 className="font-bold mb-6 text-center text-xl">🎯 תוצאות</h3>
 
-            {gameState.leaderboard.length > 0 && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4 text-center">🏆 Leaderboard</h4>
-                <div className="space-y-2">
-                  {gameState.leaderboard.map((player, index) => {
-                    const isCurrentPlayer = player.name === gameState.playerName;
-                    return (
-                      <div 
-                        key={index} 
-                        className={`flex items-center justify-between rounded-lg px-4 py-3 border ${
-                          isCurrentPlayer 
-                            ? 'bg-gradient-to-r from-party-secondary/20 to-party-secondary/10 border-party-secondary/50' 
-                            : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
-                        }`}
+              {gameState.correctAnswer &&
+                (selectedVote === gameState.correctAnswer ? (
+                  // Correct answer display
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <h4 className="font-bold mb-3 text-center text-lg text-green-800">
+                      ✅ נכון!
+                    </h4>
+                    <p
+                      data-testid="text-correct-answer"
+                      className="text-xl text-center font-bold text-green-700"
+                    >
+                      {gameState.correctAnswer}
+                    </p>
+                    <p className="text-center text-green-600 font-bold mt-3 text-lg">
+                      🎉 +10 נקודות
+                    </p>
+                  </div>
+                ) : (
+                  // Wrong answer display
+                  <div className="space-y-4 mb-4">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <h4 className="font-bold mb-3 text-center text-lg text-red-800">
+                        ❌ לא נכון
+                      </h4>
+                      <p className="text-xl text-center font-bold text-red-700">
+                        {selectedVote}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <h4 className="font-bold mb-3 text-center text-lg text-yellow-800">
+                        ✨ התשובה הנכונה
+                      </h4>
+                      <p
+                        data-testid="text-correct-answer"
+                        className="text-xl text-center font-bold text-yellow-700"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl">
-                            {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                        {gameState.correctAnswer}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+              {gameState.leaderboard.length > 0 && (
+                <div>
+                  <h4 className="font-bold mb-4 text-center text-lg">🏆</h4>
+                  <div className="flex flex-col items-center justify-center gap-2 w-full">
+                    {gameState.leaderboard.map((player, index) => {
+                      const isCurrentPlayer =
+                        player.name === gameState.playerName;
+                      return (
+                        <div
+                          key={index}
+                          className={`flex items-center justify-between rounded-lg px-4 py-3 border w-full ${
+                            isCurrentPlayer
+                              ? "bg-gradient-to-r from-party-secondary/20 to-party-secondary/10 border-party-secondary/50"
+                              : "bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="text-xl flex items-center justify-center">
+                              {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                            </div>
+                            <span
+                              data-testid={`text-leaderboard-name-${index}`}
+                              className="font-medium text-base flex items-center"
+                            >
+                              {player.name}
+                              {isCurrentPlayer && (
+                                <span className="text-base mr-2 text-party-secondary font-bold">
+                                  👤
+                                </span>
+                              )}
+                            </span>
                           </div>
-                          <span data-testid={`text-leaderboard-name-${index}`} className="font-medium text-gray-900">
-                            {player.name}
-                            {isCurrentPlayer && <span className="text-xs ml-2 text-party-secondary">(You)</span>}
+                          <span
+                            data-testid={`text-leaderboard-score-${index}`}
+                            className="text-lg font-bold text-orange-600 flex items-center"
+                          >
+                            {player.score} נק'
                           </span>
                         </div>
-                        <span data-testid={`text-leaderboard-score-${index}`} className="text-lg font-bold text-orange-600">
-                          {player.score} pts
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
+              )}
+
+              <div className="text-center mt-6">
+                <p className="text-base text-muted-foreground mb-4 font-bold">
+                  ממתין...
+                </p>
+                <div className="w-6 h-6 border-2 border-muted border-t-party-primary rounded-full animate-spin mx-auto"></div>
               </div>
-            )}
-            
-            <div className="text-center mt-6">
-              <p className="text-sm text-gray-500 mb-4">Waiting for next question...</p>
-              <div className="w-6 h-6 border-2 border-gray-300 border-t-party-primary rounded-full animate-spin mx-auto"></div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Reset states when new question starts */}
-      {gameState.gamePhase === 'question' && (hasSubmitted || hasVoted) && (() => {
-        setHasSubmitted(false);
-        setHasVoted(false);
-        setSelectedVote(null);
-        return null;
-      })()}
+      {gameState.gamePhase === "question" &&
+        (hasSubmitted || hasVoted) &&
+        (() => {
+          setHasSubmitted(false);
+          setHasVoted(false);
+          setSelectedVote(null);
+          setAnswer(""); // Clear the answer input
+          return null;
+        })()}
     </div>
   );
 }

@@ -3,25 +3,38 @@ import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Room management
-  createRoom(hostId: string, questions: Array<{question: string, correctAnswer: string}>): Promise<string>;
+  createRoom(
+    hostId: string,
+    questions: Array<{
+      question: string;
+      correctAnswer: string;
+      imageUrl?: string;
+    }>
+  ): Promise<string>;
   getRoom(code: string): Promise<Room | undefined>;
   updateRoom(code: string, updates: Partial<Room>): Promise<void>;
   deleteRoom(code: string): Promise<void>;
-  
+
   // Player management
   addPlayerToRoom(code: string, socketId: string, name: string): Promise<void>;
   removePlayerFromRoom(code: string, socketId: string): Promise<void>;
   getPlayerName(code: string, socketId: string): Promise<string | undefined>;
-  
+  getPlayersExcludingHost(code: string): Promise<string[]>;
+  getPlayerCountExcludingHost(code: string): Promise<number>;
+
   // Answer management
   submitAnswer(code: string, socketId: string, answer: string): Promise<void>;
   clearAnswers(code: string): Promise<void>;
   getAllAnswers(code: string): Promise<Array<{ name: string; answer: string }>>;
   getAnswerCount(code: string): Promise<number>;
   getPlayerCount(code: string): Promise<number>;
-  
+
   // Scoring
-  updatePlayerScore(code: string, socketId: string, points: number): Promise<void>;
+  updatePlayerScore(
+    code: string,
+    socketId: string,
+    points: number
+  ): Promise<void>;
   getLeaderboard(code: string): Promise<Array<{ name: string; score: number }>>;
   clearVotes(code: string): Promise<void>;
 }
@@ -37,19 +50,28 @@ export class MemStorage implements IStorage {
     return code;
   }
 
-  async createRoom(hostId: string, questions: Array<{question: string, correctAnswer: string}>): Promise<string> {
+  async createRoom(
+    hostId: string,
+    questions: Array<{
+      question: string;
+      correctAnswer: string;
+      imageUrl?: string;
+    }>
+  ): Promise<string> {
     const code = this.generateRoomCode();
     const room: Room = {
       code,
       hostId,
-      questions: questions.filter(q => q.question.trim().length > 0 && q.correctAnswer.trim().length > 0),
+      questions: questions.filter(
+        (q) => q.question.trim().length > 0 && q.correctAnswer.trim().length > 0
+      ),
       currentQuestionIndex: 0,
       players: {},
       answers: {},
       scores: {},
-      state: 'waiting'
+      state: "waiting",
     };
-    
+
     this.rooms.set(code, room);
     return code;
   }
@@ -69,7 +91,11 @@ export class MemStorage implements IStorage {
     this.rooms.delete(code);
   }
 
-  async addPlayerToRoom(code: string, socketId: string, name: string): Promise<void> {
+  async addPlayerToRoom(
+    code: string,
+    socketId: string,
+    name: string
+  ): Promise<void> {
     const room = this.rooms.get(code);
     if (room) {
       room.players[socketId] = name.trim();
@@ -84,12 +110,19 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getPlayerName(code: string, socketId: string): Promise<string | undefined> {
+  async getPlayerName(
+    code: string,
+    socketId: string
+  ): Promise<string | undefined> {
     const room = this.rooms.get(code);
     return room?.players[socketId];
   }
 
-  async submitAnswer(code: string, socketId: string, answer: string): Promise<void> {
+  async submitAnswer(
+    code: string,
+    socketId: string,
+    answer: string
+  ): Promise<void> {
     const room = this.rooms.get(code);
     if (room && room.players[socketId]) {
       room.answers[socketId] = answer.trim();
@@ -103,13 +136,15 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getAllAnswers(code: string): Promise<Array<{ name: string; answer: string }>> {
+  async getAllAnswers(
+    code: string
+  ): Promise<Array<{ name: string; answer: string }>> {
     const room = this.rooms.get(code);
     if (!room) return [];
-    
+
     return Object.entries(room.answers).map(([socketId, answer]) => ({
-      name: room.players[socketId] || 'Unknown',
-      answer
+      name: room.players[socketId] || "Unknown",
+      answer,
     }));
   }
 
@@ -123,7 +158,31 @@ export class MemStorage implements IStorage {
     return room ? Object.keys(room.players).length : 0;
   }
 
-  async updatePlayerScore(code: string, socketId: string, points: number): Promise<void> {
+  async getPlayerCountExcludingHost(code: string): Promise<number> {
+    const room = this.rooms.get(code);
+    if (!room) return 0;
+
+    // Count players excluding the host
+    return Object.keys(room.players).filter(
+      (socketId) => socketId !== room.hostId
+    ).length;
+  }
+
+  async getPlayersExcludingHost(code: string): Promise<string[]> {
+    const room = this.rooms.get(code);
+    if (!room) return [];
+
+    // Return player names excluding the host
+    return Object.entries(room.players)
+      .filter(([socketId]) => socketId !== room.hostId)
+      .map(([, name]) => name);
+  }
+
+  async updatePlayerScore(
+    code: string,
+    socketId: string,
+    points: number
+  ): Promise<void> {
     const room = this.rooms.get(code);
     if (room && room.players[socketId]) {
       if (!room.scores[socketId]) {
@@ -133,14 +192,16 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getLeaderboard(code: string): Promise<Array<{ name: string; score: number }>> {
+  async getLeaderboard(
+    code: string
+  ): Promise<Array<{ name: string; score: number }>> {
     const room = this.rooms.get(code);
     if (!room) return [];
-    
+
     return Object.entries(room.scores)
       .map(([socketId, score]) => ({
-        name: room.players[socketId] || 'Unknown',
-        score: score || 0
+        name: room.players[socketId] || "Unknown",
+        score: score || 0,
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 3); // Top 3 players
