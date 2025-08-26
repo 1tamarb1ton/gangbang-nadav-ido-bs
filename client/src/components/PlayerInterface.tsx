@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,16 @@ export function PlayerInterface({
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Reset states when new question starts
+  useEffect(() => {
+    if (gameState.gamePhase === "question") {
+      setHasSubmitted(false);
+      setHasVoted(false);
+      setSelectedVote(null);
+      setAnswer(""); // Clear the answer input
+    }
+  }, [gameState.questionIndex, gameState.gamePhase]);
 
   const handleJoinRoom = () => {
     if (!roomCode.trim() || !playerName.trim()) {
@@ -140,7 +150,7 @@ export function PlayerInterface({
                 placeholder="1234"
                 value={roomCode}
                 onChange={(e) => handleRoomCodeChange(e.target.value)}
-                className="text-center text-6xl font-mono tracking-widest h-28 flex items-center justify-center placeholder:text-gray-300 tracking-normal"
+                className="text-center text-6xl font-mono tracking-widest h-28 flex items-center justify-center placeholder:text-gray-300"
                 maxLength={4}
                 style={{ fontSize: "3rem" }}
               />
@@ -205,33 +215,32 @@ export function PlayerInterface({
       </Card>
 
       {/* Current Question */}
-      {gameState.gamePhase === "question" &&
-        gameState.currentQuestion &&
-        !hasSubmitted && (
-          <Card className="shadow-sm border">
-            <CardContent className="p-6">
-              <div className="flex justify-center mb-4">
-                <div className="flex items-center gap-2 bg-muted rounded-lg px-6 py-3 text-2xl text-muted-foreground font-bold">
-                  <span data-testid="text-question-index">
-                    {gameState.questionIndex}
-                  </span>
-                  <span className="mx-1">/</span>
-                  <span data-testid="text-total-questions">
-                    {gameState.totalQuestions}
-                  </span>
-                </div>
+      {gameState.gamePhase === "question" && gameState.currentQuestion && (
+        <Card className="shadow-sm border">
+          <CardContent className="p-6">
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center gap-2 bg-muted rounded-lg px-6 py-3 text-2xl text-muted-foreground font-bold">
+                <span data-testid="text-question-index">
+                  {gameState.questionIndex}
+                </span>
+                <span className="mx-1">/</span>
+                <span data-testid="text-total-questions">
+                  {gameState.totalQuestions}
+                </span>
               </div>
+            </div>
 
-              <div className="bg-gradient-to-r from-party-primary to-party-secondary rounded-lg p-4 mb-4">
-                <p
-                  data-testid="text-current-question"
-                  className="text-3xl text-foreground text-center font-bold"
-                >
-                  {gameState.currentQuestion}
-                </p>
-              </div>
+            <div className="bg-gradient-to-r from-party-primary to-party-secondary rounded-lg p-4 mb-4">
+              <p
+                data-testid="text-current-question"
+                className="text-3xl text-foreground text-center font-bold"
+              >
+                {gameState.currentQuestion}
+              </p>
+            </div>
 
-              {/* Answer Input */}
+            {/* Answer Input */}
+            {!hasSubmitted ? (
               <div className="flex flex-col items-center justify-center gap-6">
                 <div className="w-full">
                   <div className="flex items-center justify-center h-40">
@@ -273,9 +282,14 @@ export function PlayerInterface({
                   שלח
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="text-center">
+                <h3 className="font-bold text-xl">✅ התשובה נשלחה</h3>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Voting Phase */}
       {gameState.gamePhase === "voting" &&
@@ -320,19 +334,6 @@ export function PlayerInterface({
             </CardContent>
           </Card>
         )}
-
-      {/* Waiting State - After Answer Submission */}
-      {gameState.gamePhase === "question" && hasSubmitted && (
-        <Card className="shadow-sm border">
-          <CardContent className="p-6 text-center">
-            <div className="mb-4">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-muted border-t-party-secondary rounded-full"></div>
-            </div>
-            <h3 className="font-bold mb-4 text-xl">✅ נשלח!</h3>
-            <p className="text-base text-muted-foreground">ממתין...</p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Waiting State - After Vote */}
       {gameState.gamePhase === "voting" && hasVoted && (
@@ -450,17 +451,6 @@ export function PlayerInterface({
             </CardContent>
           </Card>
         )}
-
-      {/* Reset states when new question starts */}
-      {gameState.gamePhase === "question" &&
-        (hasSubmitted || hasVoted) &&
-        (() => {
-          setHasSubmitted(false);
-          setHasVoted(false);
-          setSelectedVote(null);
-          setAnswer(""); // Clear the answer input
-          return null;
-        })()}
     </div>
   );
 }

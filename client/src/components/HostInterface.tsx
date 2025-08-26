@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import type { GameState } from "@/hooks/useSocket";
+import { defaultQuestions } from "@/defaultQuestions";
 
 interface HostInterfaceProps {
   gameState: GameState;
@@ -24,7 +25,7 @@ export function HostInterface({
   onHostAction,
   onNewGame,
 }: HostInterfaceProps) {
-  const [questionsText, setQuestionsText] = useState("");
+  const [questionsText, setQuestionsText] = useState(defaultQuestions);
   const { toast } = useToast();
 
   const extractImageUrl = (
@@ -242,14 +243,14 @@ export function HostInterface({
             {/* Current Question Display */}
             {gameState.currentQuestion && (
               <Card className="bg-muted">
-                <CardContent className="p-6">
+                <CardContent className="p-8">
                   <p
                     data-testid="text-current-question"
-                    className="text-xl text-center font-bold mb-3"
+                    className="text-5xl text-center font-bold mb-6 leading-tight"
                   >
                     {gameState.currentQuestion}
                   </p>
-                  <div className="text-center text-lg text-muted-foreground font-bold">
+                  <div className="text-center text-2xl text-muted-foreground font-bold">
                     <span data-testid="text-question-number">
                       {gameState.questionIndex}
                     </span>
@@ -323,7 +324,7 @@ export function HostInterface({
                         <img
                           src={gameState.imageUrl}
                           alt="Answer illustration"
-                          className="max-w-full h-auto rounded-lg shadow-sm max-h-[300px] object-contain"
+                          className="max-w-full h-auto rounded-lg shadow-sm max-h-[1000px] object-contain"
                           data-testid="answer-image"
                           onError={(e) => {
                             console.error(
